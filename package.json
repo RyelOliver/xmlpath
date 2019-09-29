@@ -1,0 +1,28 @@
+{
+  "name": "xmlpath",
+  "version": "1.0.0",
+  "description": "A basic implementation of the XPath abbreviated syntax.",
+  "main": "XPath.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [
+    "javascript",
+    "xml",
+    "dom",
+    "xpath"
+  ],
+  "author": "Ryel Oliver <rmuchunku@gmail.com> (https://github.com/RyelOliver)",
+  "license": "MIT",
+  "devDependencies": {
+    "@ryel/multiline": "^1.0.0",
+    "eslint": "^6.3.0",
+    "jest": "^24.9.0",
+    "xmldom": "^0.1.27"
+  },
+  "dependencies": {
+    "@ryel/xml": "^2.0.0"
+  }
+}
