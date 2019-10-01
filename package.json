@@ -18,11 +18,11 @@
   "license": "MIT",
   "devDependencies": {
     "@ryel/multiline": "^1.0.0",
-    "eslint": "^6.3.0",
+    "eslint": "^6.5.1",
     "jest": "^24.9.0",
     "xmldom": "^0.1.27"
   },
   "dependencies": {
-    "@ryel/xml": "^2.0.0"
+    "@ryel/xml": "^2.0.1"
   }
 }
