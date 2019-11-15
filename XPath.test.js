@@ -1,8 +1,9 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const diff = require('jest-diff');
 const { DOMParser } = require('xmldom');
 const ml = require('@ryel/multiline');
-const { toString } = require('./DOM');
+const XML = require('@ryel/xml');
+
 const {
     ForwardAxis,
     Fn,
@@ -11,6 +12,10 @@ const {
     PathExpr,
     evaluate,
 } = require('./XPath');
+
+function toString (node) {
+    return XML.prettify(node.toString());
+}
 
 expect.extend({
     toEqualXML (received, expected) {
@@ -46,20 +51,24 @@ describe('Parsing', () => {
         const parsedPathExpr = PathExpr.parse('/w:document/w:body/w:p/w:bookmarkStart');
         expect(parsedPathExpr).toEqual([
             {
-                Function: 'root',
-                Arguments: [
-                    [ {
-                        Step: {
-                            ForwardAxis: 'self',
-                            NodeTest: {
-                                AnyKindTest: [
-                                    '*',
-                                ],
+                PrimaryExpr: [ {
+                    Function: 'root',
+                    Arguments: [
+                        [ {
+                            Step: {
+                                ForwardAxis: 'self',
+                                NodeTest: {
+                                    AnyKindTest: [
+                                        '*',
+                                    ],
+                                },
                             },
-                        },
-                        PredicateList: [],
-                    } ],
-                ],
+                            PredicateList: [],
+                        } ],
+                    ],
+                    PredicateList: [],
+                } ],
+                PredicateList: [],
             },
             {
                 Step: {
@@ -104,20 +113,24 @@ describe('Parsing', () => {
         const parsedPathExpr = PathExpr.parse('//w:bookmarkStart');
         expect(parsedPathExpr).toEqual([
             {
-                Function: 'root',
-                Arguments: [
-                    [ {
-                        Step: {
-                            ForwardAxis: 'self',
-                            NodeTest: {
-                                AnyKindTest: [
-                                    '*',
-                                ],
+                PrimaryExpr: [ {
+                    Function: 'root',
+                    Arguments: [
+                        [ {
+                            Step: {
+                                ForwardAxis: 'self',
+                                NodeTest: {
+                                    AnyKindTest: [
+                                        '*',
+                                    ],
+                                },
                             },
-                        },
-                        PredicateList: [],
-                    } ],
-                ],
+                            PredicateList: [],
+                        } ],
+                    ],
+                    PredicateList: [],
+                } ],
+                PredicateList: [],
             },
             {
                 Step: {
@@ -146,20 +159,24 @@ describe('Parsing', () => {
         const parsedPathExpr = PathExpr.parse('//w:p[1]/w:bookmarkStart');
         expect(parsedPathExpr).toEqual([
             {
-                Function: 'root',
-                Arguments: [
-                    [ {
-                        Step: {
-                            ForwardAxis: 'self',
-                            NodeTest: {
-                                AnyKindTest: [
-                                    '*',
-                                ],
+                PrimaryExpr: [ {
+                    Function: 'root',
+                    Arguments: [
+                        [ {
+                            Step: {
+                                ForwardAxis: 'self',
+                                NodeTest: {
+                                    AnyKindTest: [
+                                        '*',
+                                    ],
+                                },
                             },
-                        },
-                        PredicateList: [],
-                    } ],
-                ],
+                            PredicateList: [],
+                        } ],
+                    ],
+                    PredicateList: [],
+                } ],
+                PredicateList: [],
             },
             {
                 Step: {
@@ -201,20 +218,24 @@ describe('Parsing', () => {
         const parsedPathExpr = PathExpr.parse('//w:p[1]/w:bookmarkStart/attribute::*');
         expect(parsedPathExpr).toEqual([
             {
-                Function: 'root',
-                Arguments: [
-                    [ {
-                        Step: {
-                            ForwardAxis: 'self',
-                            NodeTest: {
-                                AnyKindTest: [
-                                    '*',
-                                ],
+                PrimaryExpr: [ {
+                    Function: 'root',
+                    Arguments: [
+                        [ {
+                            Step: {
+                                ForwardAxis: 'self',
+                                NodeTest: {
+                                    AnyKindTest: [
+                                        '*',
+                                    ],
+                                },
                             },
-                        },
-                        PredicateList: [],
-                    } ],
-                ],
+                            PredicateList: [],
+                        } ],
+                    ],
+                    PredicateList: [],
+                } ],
+                PredicateList: [],
             },
             {
                 Step: {
@@ -265,20 +286,24 @@ describe('Parsing', () => {
         const parsedPathExpr = PathExpr.parse('//w:p[@w14:paraId="604A9B26"]');
         expect(parsedPathExpr).toEqual([
             {
-                Function: 'root',
-                Arguments: [
-                    [ {
-                        Step: {
-                            ForwardAxis: 'self',
-                            NodeTest: {
-                                AnyKindTest: [
-                                    '*',
-                                ],
+                PrimaryExpr: [ {
+                    Function: 'root',
+                    Arguments: [
+                        [ {
+                            Step: {
+                                ForwardAxis: 'self',
+                                NodeTest: {
+                                    AnyKindTest: [
+                                        '*',
+                                    ],
+                                },
                             },
-                        },
-                        PredicateList: [],
-                    } ],
-                ],
+                            PredicateList: [],
+                        } ],
+                    ],
+                    PredicateList: [],
+                } ],
+                PredicateList: [],
             },
             {
                 Step: {
@@ -325,20 +350,24 @@ describe('Parsing', () => {
         const parsedPathExpr = PathExpr.parse('//w:p[1]/w:pPr/following-sibling::w:bookmarkStart');
         expect(parsedPathExpr).toEqual([
             {
-                Function: 'root',
-                Arguments: [
-                    [ {
-                        Step: {
-                            ForwardAxis: 'self',
-                            NodeTest: {
-                                AnyKindTest: [
-                                    '*',
-                                ],
+                PrimaryExpr: [ {
+                    Function: 'root',
+                    Arguments: [
+                        [ {
+                            Step: {
+                                ForwardAxis: 'self',
+                                NodeTest: {
+                                    AnyKindTest: [
+                                        '*',
+                                    ],
+                                },
                             },
-                        },
-                        PredicateList: [],
-                    } ],
-                ],
+                            PredicateList: [],
+                        } ],
+                    ],
+                    PredicateList: [],
+                } ],
+                PredicateList: [],
             },
             {
                 Step: {
@@ -383,6 +412,14 @@ describe('Parsing', () => {
                 PredicateList: [],
             },
         ]);
+    });
+
+    it('Should error', () => {
+        expect(() => PathExpr.parse('')).toThrow('A path expression is required.');
+        expect(() => PathExpr.parse('/w:p=')).toThrow('/w:p= is an invalid path expression.');
+        expect(() => PathExpr.parse('/1')).toThrow('1 is an invalid name.');
+        expect(() => PathExpr.parse('/w:p(')).toThrow('w:p( is an invalid name.');
+        expect(() => PathExpr.parse('/w:p[')).toThrow('No closing ] found.');
     });
 });
 
@@ -448,8 +485,8 @@ describe('Evaluating', () => {
 
     describe('Path expressions', () => {
         let document;
-        beforeAll(async () => {
-            const documentXml = await fs.readFile('./fixtures/document.xml', 'utf8');
+        beforeAll(() => {
+            const documentXml = fs.readFileSync('./fixtures/document.xml', 'utf8');
             document = new DOMParser().parseFromString(documentXml);
         });
 
@@ -463,20 +500,24 @@ describe('Evaluating', () => {
                     },
                     PathExpr: [
                         {
-                            Function: 'root',
-                            Arguments: [
-                                [ {
-                                    Step: {
-                                        ForwardAxis: 'self',
-                                        NodeTest: {
-                                            AnyKindTest: [
-                                                '*',
-                                            ],
+                            PrimaryExpr: [ {
+                                Function: 'root',
+                                Arguments: [
+                                    [ {
+                                        Step: {
+                                            ForwardAxis: 'self',
+                                            NodeTest: {
+                                                AnyKindTest: [
+                                                    '*',
+                                                ],
+                                            },
                                         },
-                                    },
-                                    PredicateList: [],
-                                } ],
-                            ],
+                                        PredicateList: [],
+                                    } ],
+                                ],
+                                PredicateList: [],
+                            } ],
+                            PredicateList: [],
                         },
                         {
                             Step: {
@@ -535,20 +576,24 @@ describe('Evaluating', () => {
                     },
                     PathExpr: [
                         {
-                            Function: 'root',
-                            Arguments: [
-                                [ {
-                                    Step: {
-                                        ForwardAxis: 'self',
-                                        NodeTest: {
-                                            AnyKindTest: [
-                                                '*',
-                                            ],
+                            PrimaryExpr: [ {
+                                Function: 'root',
+                                Arguments: [
+                                    [ {
+                                        Step: {
+                                            ForwardAxis: 'self',
+                                            NodeTest: {
+                                                AnyKindTest: [
+                                                    '*',
+                                                ],
+                                            },
                                         },
-                                    },
-                                    PredicateList: [],
-                                } ],
-                            ],
+                                        PredicateList: [],
+                                    } ],
+                                ],
+                                PredicateList: [],
+                            } ],
+                            PredicateList: [],
                         },
                         {
                             Step: {
@@ -591,20 +636,24 @@ describe('Evaluating', () => {
                     },
                     PathExpr: [
                         {
-                            Function: 'root',
-                            Arguments: [
-                                [ {
-                                    Step: {
-                                        ForwardAxis: 'self',
-                                        NodeTest: {
-                                            AnyKindTest: [
-                                                '*',
-                                            ],
+                            PrimaryExpr: [ {
+                                Function: 'root',
+                                Arguments: [
+                                    [ {
+                                        Step: {
+                                            ForwardAxis: 'self',
+                                            NodeTest: {
+                                                AnyKindTest: [
+                                                    '*',
+                                                ],
+                                            },
                                         },
-                                    },
-                                    PredicateList: [],
-                                } ],
-                            ],
+                                        PredicateList: [],
+                                    } ],
+                                ],
+                                PredicateList: [],
+                            } ],
+                            PredicateList: [],
                         },
                         {
                             Step: {
@@ -630,6 +679,7 @@ describe('Evaluating', () => {
                                         Left: [ {
                                             Function: 'position',
                                             Arguments: [],
+                                            PredicateList: [],
                                         } ],
                                         Right: [ {
                                             Literal: 1,
@@ -669,20 +719,24 @@ describe('Evaluating', () => {
                     },
                     PathExpr: [
                         {
-                            Function: 'root',
-                            Arguments: [
-                                [ {
-                                    Step: {
-                                        ForwardAxis: 'self',
-                                        NodeTest: {
-                                            AnyKindTest: [
-                                                '*',
-                                            ],
+                            PrimaryExpr: [ {
+                                Function: 'root',
+                                Arguments: [
+                                    [ {
+                                        Step: {
+                                            ForwardAxis: 'self',
+                                            NodeTest: {
+                                                AnyKindTest: [
+                                                    '*',
+                                                ],
+                                            },
                                         },
-                                    },
-                                    PredicateList: [],
-                                } ],
-                            ],
+                                        PredicateList: [],
+                                    } ],
+                                ],
+                                PredicateList: [],
+                            } ],
+                            PredicateList: [],
                         },
                         {
                             Step: {
@@ -708,6 +762,7 @@ describe('Evaluating', () => {
                                         Left: [ {
                                             Function: 'position',
                                             Arguments: [],
+                                            PredicateList: [],
                                         } ],
                                         Right: [ {
                                             Literal: 1,
@@ -750,20 +805,24 @@ describe('Evaluating', () => {
                     },
                     PathExpr: [
                         {
-                            Function: 'root',
-                            Arguments: [
-                                [ {
-                                    Step: {
-                                        ForwardAxis: 'self',
-                                        NodeTest: {
-                                            AnyKindTest: [
-                                                '*',
-                                            ],
+                            PrimaryExpr: [ {
+                                Function: 'root',
+                                Arguments: [
+                                    [ {
+                                        Step: {
+                                            ForwardAxis: 'self',
+                                            NodeTest: {
+                                                AnyKindTest: [
+                                                    '*',
+                                                ],
+                                            },
                                         },
-                                    },
-                                    PredicateList: [],
-                                } ],
-                            ],
+                                        PredicateList: [],
+                                    } ],
+                                ],
+                                PredicateList: [],
+                            } ],
+                            PredicateList: [],
                         },
                         {
                             Step: {
@@ -832,20 +891,24 @@ describe('Evaluating', () => {
                     },
                     PathExpr: [
                         {
-                            Function: 'root',
-                            Arguments: [
-                                [ {
-                                    Step: {
-                                        ForwardAxis: 'self',
-                                        NodeTest: {
-                                            AnyKindTest: [
-                                                '*',
-                                            ],
+                            PrimaryExpr: [ {
+                                Function: 'root',
+                                Arguments: [
+                                    [ {
+                                        Step: {
+                                            ForwardAxis: 'self',
+                                            NodeTest: {
+                                                AnyKindTest: [
+                                                    '*',
+                                                ],
+                                            },
                                         },
-                                    },
-                                    PredicateList: [],
-                                } ],
-                            ],
+                                        PredicateList: [],
+                                    } ],
+                                ],
+                                PredicateList: [],
+                            } ],
+                            PredicateList: [],
                         },
                         {
                             Step: {
@@ -871,6 +934,7 @@ describe('Evaluating', () => {
                                         Left: [ {
                                             Function: 'position',
                                             Arguments: [],
+                                            PredicateList: [],
                                         } ],
                                         Right: [ {
                                             Literal: 1,
@@ -1193,6 +1257,45 @@ describe('Evaluating', () => {
                         xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
                         w:id="0"
                     />
+                `);
+            });
+
+            it('Should evaluate an absolute path expression', () => {
+                const ItemSequence = evaluate(
+                    document, '//w:p[1]/w:r[1]/w:t[1]'
+                );
+
+                expect(ItemSequence).toHaveLength(1);
+                expect(ItemSequence[0]).toEqualXML(`
+                    <w:t
+                        xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                    >Adoration of the Magi</w:t>
+                `);
+
+                const ItemSequenceAbsolute = evaluate(
+                    ItemSequence[0], '//w:bookmarkStart'
+                );
+
+                expect(ItemSequenceAbsolute).toHaveLength(1);
+                expect(ItemSequenceAbsolute[0]).toEqualXML(`
+                    <w:bookmarkStart
+                        xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                        w:name="_GoBack"
+                        w:id="0"
+                    />
+                `);
+            });
+
+            it('Should evaluate a path expression within parentheses', () => {
+                const ItemSequence = evaluate(
+                    document, '(//w:p)[1]/w:r[1]/w:t[1]'
+                );
+
+                expect(ItemSequence).toHaveLength(1);
+                expect(ItemSequence[0]).toEqualXML(`
+                    <w:t
+                        xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                    >Adoration of the Magi</w:t>
                 `);
             });
         });

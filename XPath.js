@@ -1,4 +1,17 @@
-const { NodeType } = require('./DOM');
+const NodeType = {
+    Element: 1,
+    Attribute: 2,
+    Text: 3,
+    CDATASection: 4,
+    EntityRef: 5,
+    Entity: 6,
+    PI: 7,
+    Comment: 8,
+    Document: 9,
+    DocumentType: 10,
+    DocumentFragment: 11,
+    Notation: 12,
+};
 
 function isBoolean (value) {
     return typeof value === 'boolean';
@@ -14,6 +27,33 @@ function isString (value) {
 
 function isSingleLengthArray (value) {
     return Array.isArray(value) && value.length === 1;
+}
+
+// function isNode (value) {
+//     return typeof value === 'object' && value.nodeType !== undefined;
+// }
+
+function isNameStartChar (Char) {
+    // TODO: add unicodes
+    return /[:A-Z_a-z]/.test(Char);
+}
+
+function isNameChar (Char) {
+    // TODO: add unicodes
+    return isNameStartChar(Char) || /[-.0-9]/.test(Char);
+}
+
+function isName (Name) {
+    return isNameStartChar(Name[0]) && Name.substring(1).split('').every(isNameChar);
+}
+
+function isNameOrWildcard (Name) {
+    return Name === '*' || isName(Name);
+}
+
+function throwIfNotNameOrWildcard (Name) {
+    if (!isNameOrWildcard(Name))
+        throw Error(`${Name} is an invalid name.`);
 }
 
 const Node = {
@@ -66,8 +106,35 @@ const Node = {
             precedingDescendants.concat(Node.preceding(node.parentNode)) :
             precedingDescendants;
     },
-
 };
+
+// TODO: apply document order to the final result of each step
+// function documentOrder (ItemSequence) {
+//     return ItemSequence.sort((ItemA, ItemB) => {
+//         if (!isNode(ItemA) || !isNode(ItemB))
+//             return 0;
+
+//         // How do we know whether A is before B?
+//     });
+// }
+
+/*
+When using predicates with a sequence of nodes selected using a reverse axis,
+it is important to remember that the context positions for such a sequence
+are assigned in reverse document order. For example,
+preceding::foo[1] returns the first qualifying foo element in reverse document order,
+because the predicate is part of an axis step using a reverse axis. By contrast,
+(preceding::foo)[1] returns the first qualifying foo element in document order,
+because the parentheses cause (preceding::foo) to be parsed as a primary expression
+in which context positions are assigned in document order. Similarly,
+ancestor::*[1] returns the nearest ancestor element,
+because the ancestor axis is a reverse axis, whereas
+(ancestor::*)[1] returns the root element (first ancestor in document order).
+
+The fact that a reverse-axis step assigns context positions in reverse document order
+for the purpose of evaluating predicates does not alter the fact that the final result of the step
+is always in document order.
+*/
 
 const ValueComp = {
     eq: 'eq',
@@ -210,7 +277,17 @@ const Fn = {
         throw Error('Function unimplemented.');
     },
     root: function (Context, node = Context.Item) {
-        return node;
+        if (Array.isArray(node))
+            node = node[0];
+
+        // TODO: should really be able to evaluate (/ancestor-or-self::node())[1],
+        // but that requires implementing document order sorting
+        // TODO: xmldom provides node.ownerDocument as a shortcut
+        const XPathResult = evaluate(node, 'ancestor-or-self::node()[fn:last()]')[0];
+        if (!XPathResult || XPathResult.nodeType !== NodeType.Document)
+            throw Error('The root node is not a document node. [err:XPDY0050]');
+
+        return XPathResult;
     },
     path: function () {
         throw Error('Function unimplemented.');
@@ -336,6 +413,7 @@ const Expr = {
             Function,
             Arguments,
             Step,
+            PrimaryExpr,
             PredicateList,
         } = args;
 
@@ -389,15 +467,16 @@ const Expr = {
             }
         }
 
+        let ItemSequence = [ Context.Item ];
+
         if (Function) {
             if (!Fn[Function])
                 throw Error('Function does not exist.');
 
             const args = Arguments.map(arg => PathExpr.evaluate({ Context, PathExpr: arg }));
-            return Fn[Function](Context, ...args);
+            ItemSequence = [ Fn[Function](Context, ...args) ];
         }
 
-        let ItemSequence = [ Context.Item ];
         if (Step) {
             const { NodeTest } = Step;
             if ('ForwardAxis' in Step) {
@@ -483,6 +562,10 @@ const Expr = {
             }
         }
 
+        if (PrimaryExpr) {
+            ItemSequence = PathExpr.evaluate({ Context, PathExpr: PrimaryExpr });
+        }
+
         if (PredicateList && PredicateList.length > 0) {
             PredicateList.forEach(PathExpr => {
                 Context.Size = ItemSequence.length;
@@ -507,7 +590,8 @@ const Predicate = {
     evaluate: function (args) {
         let XPathResult = PathExpr.evaluate(args);
 
-        if (isSingleLengthArray(XPathResult) && (isBoolean(XPathResult[0])|| isNumber(XPathResult[0]) || isString(XPathResult[0])))
+        if (isSingleLengthArray(XPathResult) &&
+        (isBoolean(XPathResult[0]) || isNumber(XPathResult[0]) || isString(XPathResult[0])))
             XPathResult = XPathResult[0];
 
         if (Number.isInteger(XPathResult))
@@ -624,66 +708,123 @@ const StepExpr = {
         const trim = () => stepExpr = stepExpr.trim();
         trim();
 
+        if (stepExpr === '')
+            throw Error('A path expression is required.');
+
         if (stepExpr === '.')
-            return { ContextItemExpr: true };
+            return [ { ContextItemExpr: true } ];
 
         if (stepExpr.match(/^(\d+)$/))
-            return { Literal: parseInt(stepExpr) };
+            return [ { Literal: parseInt(stepExpr) } ];
 
         if (stepExpr.match(/^(\.\d+|\d+.\d+)$/))
-            return { Literal: parseFloat(stepExpr) };
+            return [ { Literal: parseFloat(stepExpr) } ];
 
-        if (Scope.unwrap(stepExpr, Scope.DoubleQuote) !== stepExpr) {
-            return { Literal: Scope.unwrap(stepExpr, Scope.DoubleQuote) };
+        if (stepExpr !== Scope.unwrap(stepExpr, Scope.DoubleQuote)) {
+            return [ { Literal: Scope.unwrap(stepExpr, Scope.DoubleQuote) } ];
         }
 
-        stepExpr = Scope.unwrap(stepExpr, Scope.Round);
-        trim();
+        const PredicateList = [];
+        if (stepExpr !== Scope.unwrap(stepExpr, Scope.Round)) {
+            const PrimaryExpr = StepExpr.split(Scope.unwrap(stepExpr, Scope.Round))
+                .reduce(StepExpr.parseDeep, []);
+
+            return {
+                PrimaryExpr,
+                PredicateList,
+            };
+        }
 
         const or = ` ${Op.or} `;
         const indexOr = stepExpr.indexOf(or);
         if (indexOr >= 0 && Scope.inCurrent(stepExpr, indexOr)) {
-            return {
-                OrExpr: {
-                    Left: PathExpr.parse(stepExpr.substring(0, indexOr)),
-                    Right: PathExpr.parse(stepExpr.substring(indexOr + or.length)),
-                },
-            };
+            let Left;
+            let Right;
+
+            try {
+                Left = PathExpr.parse(stepExpr.substring(0, indexOr));
+                Right = PathExpr.parse(stepExpr.substring(indexOr + or.length));
+            } catch (error) {
+                throw Error(`${stepExpr} is an invalid path expression.`);
+            }
+
+            return [ { OrExpr: { Left, Right } } ];
         }
 
         const and = ` ${Op.and} `;
         const indexAnd = stepExpr.indexOf(and);
         if (indexAnd >= 0 && Scope.inCurrent(stepExpr, indexAnd)) {
-            return {
-                AndExpr: {
-                    Left: PathExpr.parse(stepExpr.substring(0, indexAnd)),
-                    Right: PathExpr.parse(stepExpr.substring(indexAnd + and.length)),
-                },
-            };
+            let Left;
+            let Right;
+
+            try {
+                Left = PathExpr.parse(stepExpr.substring(0, indexAnd));
+                Right = PathExpr.parse(stepExpr.substring(indexAnd + and.length));
+            } catch (error) {
+                throw Error(`${stepExpr} is an invalid path expression.`);
+            }
+
+            return [ { AndExpr: { Left, Right } } ];
         }
 
         const generalComp = Object.values(GeneralComp);
         const regExp = new RegExp(`(${generalComp.join('|')})`);
         const indexOp = stepExpr.search(regExp);
         if (indexOp >= 0 && Scope.inCurrent(stepExpr, indexOp)) {
-            let op = stepExpr.substring(indexOp, indexOp + 2);
-            if (!generalComp.includes(op)) {
-                op = stepExpr.substring(indexOp, indexOp + 1);
+            let Operator = stepExpr.substring(indexOp, indexOp + 2);
+            if (!generalComp.includes(Operator)) {
+                Operator = stepExpr.substring(indexOp, indexOp + 1);
             }
 
+            let Left;
+            let Right;
+
+            try {
+                Left = PathExpr.parse(stepExpr.substring(0, indexOp));
+                Right = PathExpr.parse(stepExpr.substring(indexOp + Operator.length));
+            } catch (error) {
+                throw Error(`${stepExpr} is an invalid path expression.`);
+            }
+
+            return [ {
+                ComparisonExpr: { Left, Right, Operator },
+            } ];
+        }
+
+        while (stepExpr.indexOf(Scope.Start[Scope.Square]) >= 0) {
+            const indexStart = stepExpr.indexOf(Scope.Start[Scope.Square]);
+            let indexEnd = Scope.indexOfClosing(stepExpr.substring(indexStart), Scope.Square);
+            if (indexEnd < 0)
+                throw Error('No closing ] found.');
+
+            indexEnd += indexStart;
+
+            const predicate = PathExpr.parse(stepExpr.substring(indexStart + 1, indexEnd));
+            PredicateList.push(predicate);
+
+            const nextChar = stepExpr[indexEnd + 1];
+            if (nextChar && nextChar !== Scope.Start[Scope.Square])
+                throw Error('Only additional steps can be added after a predicate.');
+
+            stepExpr = `${stepExpr.substring(0, indexStart)}${stepExpr.substring(indexEnd + 1)}`;
+        }
+
+        if (stepExpr !== Scope.unwrap(stepExpr, Scope.Round)) {
+            const PrimaryExpr = StepExpr.split(Scope.unwrap(stepExpr, Scope.Round))
+                .reduce(StepExpr.parseDeep, []);
+
             return {
-                ComparisonExpr: {
-                    Left: PathExpr.parse(stepExpr.substring(0, indexOp)),
-                    Right: PathExpr.parse(stepExpr.substring(indexOp + op.length)),
-                    Operator: op,
-                },
+                PrimaryExpr,
+                PredicateList,
             };
         }
 
         if (stepExpr.startsWith('fn:') || stepExpr.startsWith('/fn:')) {
-            'fn:root(self::node()) treat as document-node()';
             const match = stepExpr.match(/fn:(.*?)\(/);
             const Function = match[1];
+
+            // TODO: handle expressions after function,
+            // e.g. fn:root(self::node()) treat as document-node()
             const indexStart = match.index + `fn:${Function}`.length;
             let indexEnd = Scope.indexOfClosing(stepExpr.substring(indexStart), Scope.Round);
             if (indexEnd < 0)
@@ -695,63 +836,47 @@ const StepExpr = {
                 .split(',');
             const Arguments = args.length === 1 && !args[0] ? [] : args.map(PathExpr.parse);
 
-            return {
+            return [ {
                 Function,
                 Arguments,
-            };
+                PredicateList,
+            } ];
         }
-
-        const PredicateList = [];
-        while (stepExpr.indexOf(Scope.Start[Scope.Square]) >= 0) {
-            const indexStart = stepExpr.indexOf(Scope.Start[Scope.Square]);
-            let indexEnd = Scope.indexOfClosing(stepExpr.substring(indexStart), Scope.Square);
-            if (indexEnd < 0)
-                throw Error('No closing ] found.');
-
-            indexEnd += indexStart;
-
-            const predicate = PathExpr.parse(stepExpr.substring(indexStart + 1, indexEnd));
-            // DEPRECATED
-            // if (predicate.IntegerLiteral) {
-            //     predicate.Position = predicate.IntegerLiteral;
-            //     delete predicate.IntegerLiteral;
-            // }
-            PredicateList.push(predicate);
-
-            const nextChar = stepExpr[indexEnd + 1];
-            if (nextChar && nextChar !== Scope.Start[Scope.Square])
-                throw Error('Only additional steps can be added after a predicate.');
-
-            stepExpr = `${stepExpr.substring(0, indexStart)}${stepExpr.substring(indexEnd + 1)}`;
-        }
-
-        stepExpr = Scope.unwrap(stepExpr, Scope.Round);
 
         let Axis;
         ({ Axis, StepExpr: stepExpr } = parseAxis(stepExpr));
 
         const NodeTest = {};
         if (stepExpr.match(/^element\((.*?)\)$/)) {
-            NodeTest.ElementTest = stepExpr.match(/^element\((.*?)\)$/)[1] || Wildcard;
+            const name = stepExpr.match(/^element\((.*?)\)$/)[1] || Wildcard;
+            throwIfNotNameOrWildcard(name);
+            NodeTest.ElementTest = name;
         } else if (stepExpr.match(/^attribute\((.*?)\)$/)) {
-            NodeTest.AttributeTest = stepExpr.match(/^attribute\((.*?)\)$/)[1] || Wildcard;
+            const name = stepExpr.match(/^attribute\((.*?)\)$/)[1] || Wildcard;
+            throwIfNotNameOrWildcard(name);
+            NodeTest.AttributeTest = name;
         } else if (stepExpr === 'node()') {
             NodeTest.AnyKindTest = [ Wildcard ];
         } else if (stepExpr.includes('|')) {
             stepExpr = Scope.unwrap(stepExpr, Scope.Round);
-            NodeTest.AnyKindTest = stepExpr.split('|');
+            const nameList = stepExpr.split('|');
+            nameList.every(throwIfNotNameOrWildcard);
+            NodeTest.AnyKindTest = nameList;
         } else {
-            NodeTest.NameTest = stepExpr || Wildcard;
+            const name = stepExpr || Wildcard;
+            throwIfNotNameOrWildcard(name);
+            NodeTest.NameTest = name;
         }
 
-        return {
+        return [ {
             Step: {
                 ...Axis,
                 NodeTest,
             },
             PredicateList,
-        };
+        } ];
     },
+    parseDeep: (stepList, step) => stepList.concat(StepExpr.parse(step)),
 };
 
 const ROOT_EXPR = '(fn:root(self::node()) treat as document-node())';
@@ -764,7 +889,7 @@ const PathExpr = {
             return ROOT_EXPR;
 
         if (PathExpr === '//')
-            throw Error('[err:XPST0003]');
+            throw Error('// is an invalid path expression. [err:XPST0003]');
 
         let replacedInitialOccurence = PathExpr;
         if (PathExpr.substring(0, 2) === '//') {
@@ -784,12 +909,13 @@ const PathExpr = {
     },
     parse: function (pathExpr) {
         return StepExpr.split(PathExpr.replace(pathExpr))
-            .map(StepExpr.parse);
+            .reduce(StepExpr.parseDeep, []);
     },
     evaluate: function ({ Context, PathExpr }) {
         let ItemSequence = [ Context.Item ];
         PathExpr.forEach(StepExpr => {
-            Context.Size = ItemSequence.length;
+            // Context.Size = ItemSequence.length;
+
             ItemSequence = ItemSequence.reduce((ItemSequence, Item) => {
                 const result = Expr.evaluate({
                     Context: {
